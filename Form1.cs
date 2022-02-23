@@ -22,9 +22,10 @@ namespace Half_interval
 		{
 			try
 			{
+				return x * x * x + 3 * x - 2;
 				//return (decimal)Math.Sqrt((double)x);
 				//return x*x*x-2*x-5;
-				return (decimal)Math.Sin((double)x);
+				//return (decimal)Math.Sin((double)x);
 				//return x;
 				//return (decimal)((double)x + Math.Pow(Math.E, (double)x));
 			}
