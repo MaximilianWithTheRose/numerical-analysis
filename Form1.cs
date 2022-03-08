@@ -1,17 +1,14 @@
-﻿using System;
+﻿
+
+using System;
 using System.Collections.Generic;
-using System.ComponentModel;
-using System.Data;
 using System.Drawing;
 using System.Drawing.Drawing2D;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
-using System.Windows.Forms;
+using System.Windows;
 
 namespace Half_interval
 {
-	public partial class Form1 : Form
+	public partial class Form1 : System.Windows.Form
 	{
 		public Form1()
 		{
@@ -22,7 +19,8 @@ namespace Half_interval
 		{
 			try
 			{
-				return x * x * x + 3 * x - 2;
+				return x * x * x + 3 * x - 1;
+				//return x * x * x + 3 * x - 2;
 				//return (decimal)Math.Sqrt((double)x);
 				//return x*x*x-2*x-5;
 				//return (decimal)Math.Sin((double)x);
@@ -123,7 +121,7 @@ namespace Half_interval
 			StartCap = LineCap.Round,
 			EndCap = LineCap.Round
 		};
-		Pen graphPen = new(Color.Blue, 1)
+		Pen graphPen = new(System.Drawing.Color.Blue, 1)
 		{
 			Alignment = PenAlignment.Center,
 			StartCap = LineCap.Round,
@@ -139,24 +137,25 @@ namespace Half_interval
 			Bitmap mainBmp;
 			Graphics graphics;
 			RectangleF pictureBoxBounds;
+			int size;
 			gridPen.Alignment = PenAlignment.Center;
 			gridPen.StartCap = gridPen.EndCap = LineCap.Round;
 			using (Graphics g = pictureBox1.CreateGraphics())
 			{
-				pictureBoxBounds = g.VisibleClipBounds;
-				mainBmp = new Bitmap((int)pictureBoxBounds.Width, (int)pictureBoxBounds.Height, g);
+				size = (int)Math.Min(g.VisibleClipBounds.Height, g.VisibleClipBounds.Width);
+				mainBmp = new Bitmap(size, size, g);   
 			}
 			graphics = Graphics.FromImage(mainBmp);
 			graphics.SmoothingMode = SmoothingMode.AntiAlias;
 			#endregion
 
 			// pictureBox check
-			if ((int)pictureBoxBounds.Width != (int)pictureBoxBounds.Height)
-			{
-				throw new Exception("height should be equal to width");
-			}
+			//if ((int)pictureBoxBounds.Width != (int)pictureBoxBounds.Height)
+			//{
+			//	throw new Exception("height should be equal to width");
+			//}
 
-			int pbSize = (int)pictureBoxBounds.Width;
+			int pbSize = size;
 			int pbC = pbSize / 2;
 			ratio = MAX_REAL * 2f / pbSize;
 
