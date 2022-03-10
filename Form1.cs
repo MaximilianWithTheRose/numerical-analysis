@@ -1,39 +1,27 @@
-﻿
-
-using System;
-using System.Collections.Generic;
-using System.Drawing;
 using System.Drawing.Drawing2D;
-using System.Windows;
 
-namespace Half_interval
+namespace WinFormsApp1
 {
-	public partial class Form1 : System.Windows.Form
+	public partial class Form1 : Form
 	{
 		public Form1()
 		{
 			InitializeComponent();
 		}
 
-		decimal F(decimal x)
+		static decimal F(decimal x)
 		{
 			try
 			{
-				return x * x * x + 3 * x - 1;
-				//return x * x * x + 3 * x - 2;
-				//return (decimal)Math.Sqrt((double)x);
-				//return x*x*x-2*x-5;
-				//return (decimal)Math.Sin((double)x);
-				//return x;
-				//return (decimal)((double)x + Math.Pow(Math.E, (double)x));
+				return x * x * x + 3 * x - 2; // y = x^3 + 3x - 2
+				//return 0.5m * (x+1m) * (x+1m) - 1; // y = x^3 + 3x - 2
 			}
 			catch (Exception)
 			{
 				return 0m;
 			}
 		}
-
-		float F(float x)
+		static float F(float x)
 		{
 			try
 			{
@@ -45,57 +33,98 @@ namespace Half_interval
 			}
 		}
 
+		List<(PointF, PointF)> chords = new();
 
 		private void button1_Click(object sender, EventArgs e)
 		{
-			decimal min = numericUpDown1.Value;
-			decimal max = numericUpDown2.Value;
+			#region lb stuff
+			listBox1.Items.Clear();
+			#endregion
+			#region graph stuff
+			chords.Clear();
+			#endregion
+
+			decimal min, min_val;
+			decimal max, max_val;
+			decimal error;
+
+			min = numericUpDown1.Value;
+			max = numericUpDown2.Value;
+			#region // исправить границы в случае ошибки ввода
 			if (min > max)
 			{
 				min = min + max;
 				max = min - max;
 				min = min - max;
 			}
+			#endregion
+			error = numericUpDown3.Value;
 
-			decimal? min_val = null,
-				max_val = null;
+			int numDigits = NumOfImportantDigits(error);
+			string valueFormat = $"F{numDigits}";
 
-			decimal error = numericUpDown3.Value;
-			int c = 0;
+			min_val = F(min);
+			max_val = F(max);
+
+			#region graph stuff
+			chords.Add(new(new PointF((float)min, (float)min_val), new PointF((float)max, (float)max_val)));
+			#endregion
+
+			bool move_right = (min_val < max_val);
+
+			int stepNum = 1;
+			decimal root_old = decimal.MinValue;
+			int eq_counter = 0;
 			while (max - min >= error)
 			{
-				c++;
-				min_val ??= F(min);
-				max_val ??= F(max);
+				decimal root = min - (min_val / (max_val - min_val)) * (max - min);
 
-				decimal avg = (min + max) / 2M,
-					avg_val = F(avg);
+				root = Math.Round(root, numDigits);
 
-				if (min_val * avg_val < 0)
+				if (root == root_old)
+					eq_counter++;
+				else
+					eq_counter = 0;
+
+				root_old = root;
+
+				if (move_right)
 				{
-					max = avg;
-					max_val = avg_val;
+					min = root;
+					min_val = F(min);
 				}
 				else
 				{
-					min = avg;
-					min_val = avg_val;
+					max = root;
+					max_val = F(max);
 				}
 
-				if (c > 100000)
+				#region output stuff
+				listBox1.Items.Add($"{stepNum + ")",-4} ({min.ToString(valueFormat),-10}, {max.ToString(valueFormat),-10})");
+				#endregion
+				#region graph stuff
+				chords.Add(new(new PointF((float)min, (float)min_val), new PointF((float)max, (float)max_val)));
+				#endregion
+				stepNum++;
+				if (stepNum > 100000 || eq_counter == 3)
 					break;
 			}
+			#region graph stuff
+			chords.Add(new(new PointF((float)min, (float)min_val), new PointF((float)max, (float)max_val)));
+			#endregion
+			#region clean-up stuff
+			listBox1.Items.RemoveAt(listBox1.Items.Count - 1);
+			listBox1.Items.RemoveAt(listBox1.Items.Count - 1);
+			listBox1.Items.RemoveAt(listBox1.Items.Count - 1);
 
-
-			string format = $"F{CalcDigits(error)}";
-			listBox1.Items.Insert(0, "");
-			listBox1.Items.Insert(0, $"шагов: {c}");
-			listBox1.Items.Insert(0, $"ξ ϵ ({min.ToString(format)};{max.ToString(format)})");
-			textBox1.Text = $"ξ ϵ ({min.ToString(format)};{max.ToString(format)})";
-
+			chords.RemoveAt(chords.Count - 1);
+			chords.RemoveAt(chords.Count - 1);
+			chords.RemoveAt(chords.Count - 1);
+			#endregion
+			textBox1.Text = $"ξ ϵ ({min.ToString(valueFormat)};{max.ToString(valueFormat)})";
 		}
 
-		int CalcDigits(decimal num)
+		static int NumOfImportantDigits(decimal num)
 		{
 			int i;
 			for (i = 1; i < 15; i++)
@@ -108,25 +137,40 @@ namespace Half_interval
 			return i;
 		}
 
-		int MAX_REAL = 10;
-		int MIN_REAL;
-		int NUM_STEPS = 100;
-		const int UNIT_OFFSET = 2;
-		const int FITH_UNIT_OFFSET = 6;
+
+
+
+
+		int MAX_REAL, MIN_REAL;
+		const int NUM_STEPS = 70;
+		const int TICK_HEIGHT = 2;
+		const int FITH_TICK_HEIGHT = 6;
+		const int INCREASE_LOL = 4;
 		float ratio;
 
-		Pen gridPen = new(Color.Black, 1)
+		readonly Pen gridPen = new(Color.Black, 1)
 		{
 			Alignment = PenAlignment.Center,
 			StartCap = LineCap.Round,
 			EndCap = LineCap.Round
 		};
-		Pen graphPen = new(System.Drawing.Color.Blue, 1)
+		readonly Pen graphPen = new(Color.Blue, 1)
 		{
 			Alignment = PenAlignment.Center,
 			StartCap = LineCap.Round,
 			EndCap = LineCap.Round
 		};
+		readonly Pen chordPen = new(Color.Red, 1)
+		{
+			Alignment = PenAlignment.Center,
+			StartCap = LineCap.Round,
+			EndCap = LineCap.Round
+		};
+
+		private void Form1_Load(object sender, EventArgs e)
+		{
+			button2_Click(sender, null);
+		}
 
 		private void button2_Click(object sender, EventArgs e)
 		{
@@ -136,24 +180,17 @@ namespace Half_interval
 			#region bitmap stuff
 			Bitmap mainBmp;
 			Graphics graphics;
-			RectangleF pictureBoxBounds;
 			int size;
 			gridPen.Alignment = PenAlignment.Center;
 			gridPen.StartCap = gridPen.EndCap = LineCap.Round;
 			using (Graphics g = pictureBox1.CreateGraphics())
 			{
-				size = (int)Math.Min(g.VisibleClipBounds.Height, g.VisibleClipBounds.Width);
-				mainBmp = new Bitmap(size, size, g);   
+				size = (int)Math.Min(g.VisibleClipBounds.Height, g.VisibleClipBounds.Width) + INCREASE_LOL;
+				mainBmp = new Bitmap(size, size, g);
 			}
 			graphics = Graphics.FromImage(mainBmp);
 			graphics.SmoothingMode = SmoothingMode.AntiAlias;
 			#endregion
-
-			// pictureBox check
-			//if ((int)pictureBoxBounds.Width != (int)pictureBoxBounds.Height)
-			//{
-			//	throw new Exception("height should be equal to width");
-			//}
 
 			int pbSize = size;
 			int pbC = pbSize / 2;
@@ -171,12 +208,19 @@ namespace Half_interval
 
 				int offset;
 				if (realX % 5 == 0)
-					offset = FITH_UNIT_OFFSET;
+					offset = FITH_TICK_HEIGHT;
 				else
-					offset = UNIT_OFFSET;
+					offset = TICK_HEIGHT;
 
 				graphics.DrawLine(gridPen, x, pbC - offset, x, pbC + offset);
 				graphics.DrawLine(gridPen, pbC - offset, x, pbC + offset, x);
+
+				if (realX != 0)
+				{
+					Font f = new("Arial", 8);
+					graphics.DrawString((-realX).ToString(), f, new SolidBrush(Color.Black), x, pbC + offset);
+					graphics.DrawString((-realX).ToString(), f, new SolidBrush(Color.Black), pbC + offset, x);
+				}
 			}
 			#endregion
 
@@ -192,20 +236,38 @@ namespace Half_interval
 
 			graphics.DrawCurve(graphPen, graphPoints.ToArray());
 
+
+			#region draw chords
+			foreach (var chord in chords)
+			{
+				float
+					x1 = ToCord(chord.Item1.X, ratio, pbSize),
+					y1 = ToCord(chord.Item1.Y, ratio, pbSize);
+
+				float
+					x2 = ToCord(chord.Item2.X, ratio, pbSize),
+					y2 = ToCord(chord.Item2.Y, ratio, pbSize);
+
+				y1 = ToCord(F(chord.Item1.X), ratio, pbSize);
+				y2 = ToCord(F(chord.Item2.X), ratio, pbSize);
+
+				x1 = pbC - (x1 - pbC);
+				x2 = pbC - (x2 - pbC);
+
+				graphics.DrawLine(chordPen, x1, y1, x2, y2);
+			}
+			#endregion
+
 			pictureBox1.Image = mainBmp;
 		}
 
-		private void Form1_Load(object sender, EventArgs e)
-		{
-			button2_Click(sender, null);
-		}
 
-		float ToCord(float real, float ratio, float pic_dimension)
+		static float ToCord(float real, float ratio, float pic_dimension)
 		{
 			return MathF.Max(MathF.Min((-real) / ratio + pic_dimension / 2, pic_dimension), 0);
 		}
 
-		float ToReal(float cord, float ratio, float max_real)
+		static float ToReal(float cord, float ratio, float max_real)
 		{
 			return cord * ratio - max_real;
 		}
