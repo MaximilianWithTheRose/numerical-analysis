@@ -1,5 +1,5 @@
 ﻿
-namespace Half_interval
+namespace WinFormsApp1
 {
 	partial class Form1
 	{
