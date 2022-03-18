@@ -1,6 +1,11 @@
+using System;
+using System.Collections.Generic;
+using System.Drawing;
 using System.Drawing.Drawing2D;
+using System.Windows;
+using System.Windows.Forms;
 
-namespace WinFormsApp1
+namespace Half_interval
 {
 	public partial class Form1 : Form
 	{
@@ -14,7 +19,7 @@ namespace WinFormsApp1
 			try
 			{
 				return x * x * x + 3 * x - 2; // y = x^3 + 3x - 2
-				//return 0.5m * (x+1m) * (x+1m) - 1; // y = x^3 + 3x - 2
+											  //return 0.5m * (x+1m) * (x+1m) - 1; // y = x^3 + 3x - 2
 			}
 			catch (Exception)
 			{
