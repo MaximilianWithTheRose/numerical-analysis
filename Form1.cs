@@ -1,9 +1,11 @@
-using System;
 using System.Collections.Generic;
 using System.Drawing;
+using System;
 using System.Drawing.Drawing2D;
-using System.Windows;
 using System.Windows.Forms;
+using System.Windows;
+using System.Linq;
+//using Windows.Devices.Radios;
 
 namespace Half_interval
 {
@@ -18,8 +20,9 @@ namespace Half_interval
 		{
 			try
 			{
-				return x * x * x + 3 * x - 2; // y = x^3 + 3x - 2
-											  //return 0.5m * (x+1m) * (x+1m) - 1; // y = x^3 + 3x - 2
+				//return x * x * x * x - 2m * x - 4;
+				//return x * x * x + 3 * x - 2; // y = x^3 + 3x - 2
+				return 0.5m * (x + 1m) * (x + 1m) - 1; // y = x^3 + 3x - 2
 			}
 			catch (Exception)
 			{
@@ -38,24 +41,34 @@ namespace Half_interval
 			}
 		}
 
-		List<(PointF, PointF)> chords = new();
+		List<((decimal X, decimal Y) min, (decimal X, decimal Y) max)> steps = new();
+
+		private void Form1_Load(object sender, EventArgs e)
+		{
+			del += CalcChords;
+			button2_Click(sender, null);
+		}
 
 		private void button1_Click(object sender, EventArgs e)
 		{
-			#region lb stuff
+			Calculate();
+		}
+
+		private void button2_Click(object sender, EventArgs e)
+{
+Draw();
+}
+
+		private void Calculate()
+{
 			listBox1.Items.Clear();
-			#endregion
-			#region graph stuff
-			chords.Clear();
-			#endregion
 
-			decimal min, min_val;
-			decimal max, max_val;
-			decimal error;
 
-			min = numericUpDown1.Value;
-			max = numericUpDown2.Value;
-			#region // исправить границы в случае ошибки ввода
+			decimal min = numericUpDown1.Value;
+			decimal max = numericUpDown2.Value;
+			decimal error = numericUpDown3.Value;
+
+			#region исправить границы в случае ошибки ввода
 			if (min > max)
 			{
 				min = min + max;
@@ -63,30 +76,42 @@ namespace Half_interval
 				min = min - max;
 			}
 			#endregion
-			error = numericUpDown3.Value;
 
-			int numDigits = NumOfImportantDigits(error);
-			string valueFormat = $"F{numDigits}";
+			int digits = NumOfImportantDigits(error);
 
-			min_val = F(min);
-			max_val = F(max);
+			(min, max) = del.Invoke(min, max, error, out steps);
 
-			#region graph stuff
-			chords.Add(new(new PointF((float)min, (float)min_val), new PointF((float)max, (float)max_val)));
-			#endregion
+			textBox1.Text = $"ξ ϵ ({ToString(min, digits)};{ToString(max, digits)})";
+for (int i = 1; i < steps.Count; i++)
+				listBox1.Items.Add($"{i + ")",-4} ({ToString(steps[i].min.X, digits),-10}, {ToString(steps[i].max.X, digits),-10})");
+		}
 
-			bool move_right = (min_val < max_val);
+		private static string ToString(decimal d, int digits)
+		{
+			string valueFormat = $"F{digits}";
+			return d.ToString(valueFormat);
+		}
 
-			int stepNum = 1;
+		delegate (decimal, decimal) Calculator(decimal min, decimal max, decimal error, out List<((decimal X, decimal Y) min, (decimal X, decimal Y) max)> steps);
+		Calculator del;
+
+		private static (decimal min, decimal max) CalcChords(decimal min, decimal max, decimal error, out List<((decimal X, decimal Y) min, (decimal X, decimal Y) max)> steps)
+		{
+			decimal min_val = F(min);
+			decimal max_val = F(max);
 			decimal root_old = decimal.MinValue;
+			bool move_right = (min_val < max_val);
 			int eq_counter = 0;
+			int i = 0;
+
+			steps = new();
+			steps.Add(((min, min_val), (max, max_val)));
+
 			while (max - min >= error)
 			{
 				decimal root = min - (min_val / (max_val - min_val)) * (max - min);
 
-				root = Math.Round(root, numDigits);
-
-				if (root == root_old)
+				if (Math.Abs(root - root_old) < error)
 					eq_counter++;
 				else
 					eq_counter = 0;
@@ -104,29 +129,21 @@ namespace Half_interval
 					max_val = F(max);
 				}
 
-				#region output stuff
-				listBox1.Items.Add($"{stepNum + ")",-4} ({min.ToString(valueFormat),-10}, {max.ToString(valueFormat),-10})");
-				#endregion
-				#region graph stuff
-				chords.Add(new(new PointF((float)min, (float)min_val), new PointF((float)max, (float)max_val)));
-				#endregion
-				stepNum++;
-				if (stepNum > 100000 || eq_counter == 3)
+				steps.Add(((min, min_val), (max, max_val)));
+
+				i++;
+				if (i > 100000 || eq_counter == 3)
 					break;
 			}
-			#region graph stuff
-			chords.Add(new(new PointF((float)min, (float)min_val), new PointF((float)max, (float)max_val)));
-			#endregion
-			#region clean-up stuff
-			listBox1.Items.RemoveAt(listBox1.Items.Count - 1);
-			listBox1.Items.RemoveAt(listBox1.Items.Count - 1);
-			listBox1.Items.RemoveAt(listBox1.Items.Count - 1);
 
-			chords.RemoveAt(chords.Count - 1);
-			chords.RemoveAt(chords.Count - 1);
-			chords.RemoveAt(chords.Count - 1);
-			#endregion
-			textBox1.Text = $"ξ ϵ ({min.ToString(valueFormat)};{max.ToString(valueFormat)})";
+			//steps.Add(new(new PointF((float)min, (float)min_val), new PointF((float)max, (float)max_val)));
+
+
+			steps.RemoveAt(steps.Count - 1);
+			steps.RemoveAt(steps.Count - 1);
+			//steps.RemoveAt(steps.Count - 1);
+
+			return (min, max);
 		}
 
 		static int NumOfImportantDigits(decimal num)
@@ -172,89 +189,43 @@ namespace Half_interval
 			EndCap = LineCap.Round
 		};
 
-		private void Form1_Load(object sender, EventArgs e)
+		Bitmap mainBmp;
+		Graphics graphics;
+
+		private int GetSize()
 		{
-			button2_Click(sender, null);
+			return mainBmp.Size.Width;
 		}
 
-		private void button2_Click(object sender, EventArgs e)
+		private void Draw()
 		{
-			MAX_REAL = (int)numericUpDown4.Value;
-			MIN_REAL = -MAX_REAL;
+			CreateBmp();
 
-			#region bitmap stuff
-			Bitmap mainBmp;
-			Graphics graphics;
-			int size;
-			gridPen.Alignment = PenAlignment.Center;
-			gridPen.StartCap = gridPen.EndCap = LineCap.Round;
-			using (Graphics g = pictureBox1.CreateGraphics())
-			{
-				size = (int)Math.Min(g.VisibleClipBounds.Height, g.VisibleClipBounds.Width) + INCREASE_LOL;
-				mainBmp = new Bitmap(size, size, g);
-			}
-			graphics = Graphics.FromImage(mainBmp);
-			graphics.SmoothingMode = SmoothingMode.AntiAlias;
-			#endregion
-
-			int pbSize = size;
+			int pbSize = GetSize();
 			int pbC = pbSize / 2;
-			ratio = MAX_REAL * 2f / pbSize;
 
-			#region draw grid
-			gridPen.Width = 1;
-			graphics.DrawLine(gridPen, pbSize / 2, 0, pbSize / 2, pbSize);
-			graphics.DrawLine(gridPen, 0, pbSize / 2, pbSize, pbSize / 2);
+			CalcShit();
 
-			gridPen.Width = 1;
-			for (float realX = MIN_REAL; realX <= MAX_REAL; realX += 1)
-			{
-				int x = (int)ToCord(realX, ratio, pbSize);
+			DrawGrid(gridPen);
 
-				int offset;
-				if (realX % 5 == 0)
-					offset = FITH_TICK_HEIGHT;
-				else
-					offset = TICK_HEIGHT;
+			DrawFunction(graphPen);
 
-				graphics.DrawLine(gridPen, x, pbC - offset, x, pbC + offset);
-				graphics.DrawLine(gridPen, pbC - offset, x, pbC + offset, x);
-
-				if (realX != 0)
-				{
-					Font f = new("Arial", 8);
-					graphics.DrawString((-realX).ToString(), f, new SolidBrush(Color.Black), x, pbC + offset);
-					graphics.DrawString((-realX).ToString(), f, new SolidBrush(Color.Black), pbC + offset, x);
-				}
-			}
-			#endregion
-
-			List<PointF> graphPoints = new();
-			for (float x = 0; x < pbSize; x += pbSize / NUM_STEPS)
-			{
-				float correctedX = ToReal(x, ratio, MAX_REAL),
-				 y = F(correctedX),
-				 reversedY = ToCord(y, ratio, pbSize);
-
-				graphPoints.Add(new PointF(x, reversedY));
-			}
-
-			graphics.DrawCurve(graphPen, graphPoints.ToArray());
-
+			List<((float X, float Y), (float X, float Y))> stepsF;
+			stepsF = steps.Select(x => (((float)x.max.X, (float)x.max.Y), ((float)x.min.X, (float)x.min.Y))).ToList();
 
 			#region draw chords
-			foreach (var chord in chords)
+			foreach (var chord in stepsF)
 			{
 				float
-					x1 = ToCord(chord.Item1.X, ratio, pbSize),
-					y1 = ToCord(chord.Item1.Y, ratio, pbSize);
+					x1 = ToPixels(chord.Item1.X),
+					y1 = ToPixels(chord.Item1.Y);
 
 				float
-					x2 = ToCord(chord.Item2.X, ratio, pbSize),
-					y2 = ToCord(chord.Item2.Y, ratio, pbSize);
+					x2 = ToPixels(chord.Item2.X),
+					y2 = ToPixels(chord.Item2.Y);
 
-				y1 = ToCord(F(chord.Item1.X), ratio, pbSize);
-				y2 = ToCord(F(chord.Item2.X), ratio, pbSize);
+				y1 = ToPixels(F(chord.Item1.X));
+				y2 = ToPixels(F(chord.Item2.X));
 
 				x1 = pbC - (x1 - pbC);
 				x2 = pbC - (x2 - pbC);
@@ -267,14 +238,163 @@ namespace Half_interval
 		}
 
 
-		static float ToCord(float real, float ratio, float pic_dimension)
+		(int X, int Y) Shift = new(0, 0);
+		int MAX_Y;
+		int MIN_Y;
+		private void CalcShit()
 		{
-			return MathF.Max(MathF.Min((-real) / ratio + pic_dimension / 2, pic_dimension), 0);
+			MAX_REAL = GetZoom() / 2 - Shift.X;
+			MIN_REAL = MAX_REAL - GetZoom();
+
+			ratio = (float)GetZoom() / GetSize();
+
+			// TODO: y movement
 		}
 
-		static float ToReal(float cord, float ratio, float max_real)
+		private int GetZoom()
 		{
-			return cord * ratio - max_real;
+			return trackBar1.Value;
 		}
+
+		private void DrawFunction(Pen pen)
+		{
+			List<PointF> graphPoints = new();
+			for (float X_px = 0; X_px < GetSize(); X_px += GetSize() / NUM_STEPS)
+			{
+				float X_val = ToValue(X_px);
+				float Y_val = F(X_val);
+				float Y_px = ToPixels(Y_val);
+
+				graphPoints.Add(new(X_px, Y_px));
+			}
+
+			graphics.DrawCurve(pen, graphPoints.ToArray());
+		}
+
+
+
+		private void DrawGrid(Pen pen)
+		{
+			int step = 1;
+			int pbSize = GetSize();
+			int pbC = pbSize / 2;
+
+			pen.Width = 1;
+			graphics.DrawLine(pen, pbSize / 2, 0, pbSize / 2, pbSize);
+			graphics.DrawLine(pen, 0, pbSize / 2, pbSize, pbSize / 2);
+
+			for (float realX = MIN_REAL; realX <= MAX_REAL; realX += step)
+			{
+				int x = (int)ToPixels(realX);
+
+				int offset;
+				if (realX % 5 == 0)
+					offset = FITH_TICK_HEIGHT;
+				else
+					offset = TICK_HEIGHT;
+
+				graphics.DrawLine(pen, x, pbC - offset, x, pbC + offset);
+				graphics.DrawLine(pen, pbC - offset, x, pbC + offset, x);
+
+				if (realX != 0)
+				{
+					Font f = new("Arial", 8);
+					graphics.DrawString((-realX).ToString(), f, new SolidBrush(Color.Black), x, pbC + offset);
+					graphics.DrawString((-realX).ToString(), f, new SolidBrush(Color.Black), pbC + offset, x);
+				}
+			}
+
+			//for (float realX = MIN_REAL; realX <= MAX_REAL; realX += step)
+			//{
+			//	int x = (int)ToCord(realX, ratio, pbSize);
+
+			//	int offset;
+			//	if (realX % 5 == 0)
+			//		offset = FITH_TICK_HEIGHT;
+			//	else
+			//		offset = TICK_HEIGHT;
+
+			//	graphics.DrawLine(pen, x, pbC - offset, x, pbC + offset);
+			//	graphics.DrawLine(pen, pbC - offset, x, pbC + offset, x);
+
+			//	if (realX != 0)
+			//	{
+			//		Font f = new("Arial", 8);
+			//		graphics.DrawString((-realX).ToString(), f, new SolidBrush(Color.Black), x, pbC + offset);
+			//		graphics.DrawString((-realX).ToString(), f, new SolidBrush(Color.Black), pbC + offset, x);
+			//	}
+			//}
+		}
+
+		private void CreateBmp()
+		{
+			int size;
+			gridPen.Alignment = PenAlignment.Center;
+			gridPen.StartCap = gridPen.EndCap = LineCap.Round;
+			using (Graphics g = pictureBox1.CreateGraphics())
+			{
+				size = (int)Math.Min(g.VisibleClipBounds.Height, g.VisibleClipBounds.Width) + INCREASE_LOL;
+				mainBmp = new Bitmap(size, size, g);
+			}
+			graphics = Graphics.FromImage(mainBmp);
+			graphics.SmoothingMode = SmoothingMode.AntiAlias;
+		}
+
+		int ToPixels(float value)
+		{
+			return (int)
+				MathF.Round(
+					MathF.Max(
+						MathF.Min(
+							(-value) / ratio + GetSize() / 2,
+							GetSize()),
+						0),
+					0);
+		}
+		float ToValue(float pixel)
+		{
+			return pixel * ratio - MAX_REAL;
+		}
+
+		#region moing graph
+		private void button3_Click(object sender, EventArgs e)
+		{
+			MoveGraph(Direction.Left);
+		}
+
+		private void button4_Click(object sender, EventArgs e)
+		{
+			MoveGraph(Direction.Right);
+		}
+
+		private void button5_Click(object sender, EventArgs e)
+		{
+			MoveGraph(Direction.Top);
+		}
+
+		private void button6_Click(object sender, EventArgs e)
+		{
+			MoveGraph(Direction.Down);
+		}
+
+		private void MoveGraph(Direction direction)
+		{
+			switch (direction)
+			{
+				case Direction.Left:
+					Shift.X -= GetZoom() / 2;
+					break;
+				case Direction.Right:
+					Shift.X += GetZoom() / 2;
+					break;
+				case Direction.Top:
+					Shift.Y += GetZoom() / 2;
+					break;
+				case Direction.Down:
+					Shift.Y -= GetZoom() / 2;
+					break;
+			}
+		}
+		#endregion
 	}
 }
