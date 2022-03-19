@@ -2,7 +2,7 @@
 {
 	enum Direction
 	{
-		Top,
+		Up,
 		Left,
 		Down,
 		Right

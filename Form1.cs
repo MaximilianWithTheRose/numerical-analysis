@@ -46,6 +46,10 @@ namespace Half_interval
 		private void Form1_Load(object sender, EventArgs e)
 		{
 			del += CalcChords;
+
+			// HACK: fix wierd behavior
+			MoveGraph(Direction.Up);
+			
 			button2_Click(sender, null);
 		}
 
@@ -55,12 +59,12 @@ namespace Half_interval
 		}
 
 		private void button2_Click(object sender, EventArgs e)
-{
-Draw();
-}
+		{
+			Draw();
+		}
 
 		private void Calculate()
-{
+		{
 			listBox1.Items.Clear();
 
 
@@ -82,7 +86,7 @@ Draw();
 			(min, max) = del.Invoke(min, max, error, out steps);
 
 			textBox1.Text = $"ξ ϵ ({ToString(min, digits)};{ToString(max, digits)})";
-for (int i = 1; i < steps.Count; i++)
+			for (int i = 1; i < steps.Count; i++)
 				listBox1.Items.Add($"{i + ")",-4} ({ToString(steps[i].min.X, digits),-10}, {ToString(steps[i].max.X, digits),-10})");
 		}
 
@@ -160,10 +164,7 @@ for (int i = 1; i < steps.Count; i++)
 		}
 
 
-
-
-
-		int MAX_REAL, MIN_REAL;
+		int MAX_X, MIN_X;
 		const int NUM_STEPS = 70;
 		const int TICK_HEIGHT = 2;
 		const int FITH_TICK_HEIGHT = 6;
@@ -204,7 +205,7 @@ for (int i = 1; i < steps.Count; i++)
 			int pbSize = GetSize();
 			int pbC = pbSize / 2;
 
-			CalcShit();
+			CalcCoeffs();
 
 			DrawGrid(gridPen);
 
@@ -217,15 +218,15 @@ for (int i = 1; i < steps.Count; i++)
 			foreach (var chord in stepsF)
 			{
 				float
-					x1 = ToPixels(chord.Item1.X),
-					y1 = ToPixels(chord.Item1.Y);
+					x1 = ToPixelsX(chord.Item1.X, MAX_X),
+					y1 = ToPixelsY(chord.Item1.Y, MAX_Y);
 
 				float
-					x2 = ToPixels(chord.Item2.X),
-					y2 = ToPixels(chord.Item2.Y);
+					x2 = ToPixelsX(chord.Item2.X, MAX_X),
+					y2 = ToPixelsY(chord.Item2.Y, MAX_Y);
 
-				y1 = ToPixels(F(chord.Item1.X));
-				y2 = ToPixels(F(chord.Item2.X));
+				y1 = ToPixelsY(F(chord.Item1.X), MAX_X);
+				y2 = ToPixelsY(F(chord.Item2.X), MAX_Y);
 
 				x1 = pbC - (x1 - pbC);
 				x2 = pbC - (x2 - pbC);
@@ -241,10 +242,16 @@ for (int i = 1; i < steps.Count; i++)
 		(int X, int Y) Shift = new(0, 0);
 		int MAX_Y;
 		int MIN_Y;
-		private void CalcShit()
+		private void CalcCoeffs()
 		{
-			MAX_REAL = GetZoom() / 2 - Shift.X;
-			MIN_REAL = MAX_REAL - GetZoom();
+			MAX_X = GetZoom() / 2 - Shift.X;
+			MIN_X = MAX_X - GetZoom();
+
+			MAX_Y = GetZoom() / 2 - Shift.Y;
+			MIN_Y = MAX_Y - GetZoom();
+
+			// HACK: fix wierd behavior
+			//MoveGraph(Direction.Up);
 
 			ratio = (float)GetZoom() / GetSize();
 
@@ -261,9 +268,9 @@ for (int i = 1; i < steps.Count; i++)
 			List<PointF> graphPoints = new();
 			for (float X_px = 0; X_px < GetSize(); X_px += GetSize() / NUM_STEPS)
 			{
-				float X_val = ToValue(X_px);
+				float X_val = ToValue(X_px, MAX_X);
 				float Y_val = F(X_val);
-				float Y_px = ToPixels(Y_val);
+				float Y_px = ToPixelsY(Y_val, MAX_Y);
 
 				graphPoints.Add(new(X_px, Y_px));
 			}
@@ -283,25 +290,41 @@ for (int i = 1; i < steps.Count; i++)
 			graphics.DrawLine(pen, pbSize / 2, 0, pbSize / 2, pbSize);
 			graphics.DrawLine(pen, 0, pbSize / 2, pbSize, pbSize / 2);
 
-			for (float realX = MIN_REAL; realX <= MAX_REAL; realX += step)
+			//for (float x_val = MIN_X; x_val <= MAX_X; x_val += step)
+			//{
+			//	int x_px = ToPixels(x_val, MAX_X);
+
+			//	int offset;
+			//	if (x_val % 5 == 0)
+			//		offset = FITH_TICK_HEIGHT;
+			//	else
+			//		offset = TICK_HEIGHT;
+
+			//	graphics.DrawLine(pen, x_px, pbC - offset, x_px, pbC + offset);
+			//	graphics.DrawLine(pen, pbC - offset, x_px, pbC + offset, x_px);
+
+			//	if (x_val != 0)
+			//	{
+			//		Font f = new("Arial", 8);
+			//		graphics.DrawString((-x_val).ToString(), f, new SolidBrush(Color.Black), x_px, pbC + offset);
+			//		graphics.DrawString((x_val).ToString(), f, new SolidBrush(Color.Black), pbC + offset, x_px);
+			//	}
+			//}
+
+
+			for (int x_val = MIN_X; x_val <= MAX_X; x_val += step)
 			{
-				int x = (int)ToPixels(realX);
+				int x_px = ToPixelsX(x_val, MAX_X);
 
 				int offset;
-				if (realX % 5 == 0)
+				if (x_val % 5 == 0)
 					offset = FITH_TICK_HEIGHT;
 				else
 					offset = TICK_HEIGHT;
 
-				graphics.DrawLine(pen, x, pbC - offset, x, pbC + offset);
-				graphics.DrawLine(pen, pbC - offset, x, pbC + offset, x);
-
-				if (realX != 0)
-				{
-					Font f = new("Arial", 8);
-					graphics.DrawString((-realX).ToString(), f, new SolidBrush(Color.Black), x, pbC + offset);
-					graphics.DrawString((-realX).ToString(), f, new SolidBrush(Color.Black), pbC + offset, x);
-				}
+				graphics.DrawLine(pen, x_px, pbC - offset, x_px, pbC + offset);
+				Font f = new("Arial", 8);
+				graphics.DrawString((x_val).ToString(), f, new SolidBrush(Color.Black), x_px, pbC + TICK_HEIGHT);
 			}
 
 			//for (float realX = MIN_REAL; realX <= MAX_REAL; realX += step)
@@ -340,23 +363,9 @@ for (int i = 1; i < steps.Count; i++)
 			graphics.SmoothingMode = SmoothingMode.AntiAlias;
 		}
 
-		int ToPixels(float value)
-		{
-			return (int)
-				MathF.Round(
-					MathF.Max(
-						MathF.Min(
-							(-value) / ratio + GetSize() / 2,
-							GetSize()),
-						0),
-					0);
-		}
-		float ToValue(float pixel)
-		{
-			return pixel * ratio - MAX_REAL;
-		}
+		
 
-		#region moing graph
+		#region moving graph
 		private void button3_Click(object sender, EventArgs e)
 		{
 			MoveGraph(Direction.Left);
@@ -369,7 +378,7 @@ for (int i = 1; i < steps.Count; i++)
 
 		private void button5_Click(object sender, EventArgs e)
 		{
-			MoveGraph(Direction.Top);
+			MoveGraph(Direction.Up);
 		}
 
 		private void button6_Click(object sender, EventArgs e)
@@ -387,7 +396,7 @@ for (int i = 1; i < steps.Count; i++)
 				case Direction.Right:
 					Shift.X += GetZoom() / 2;
 					break;
-				case Direction.Top:
+				case Direction.Up:
 					Shift.Y += GetZoom() / 2;
 					break;
 				case Direction.Down:
