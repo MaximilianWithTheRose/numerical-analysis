@@ -20,9 +20,10 @@ namespace Half_interval
 		{
 			try
 			{
+				return x;
 				//return x * x * x * x - 2m * x - 4;
 				//return x * x * x + 3 * x - 2; // y = x^3 + 3x - 2
-				return 0.5m * (x + 1m) * (x + 1m) - 1; // y = x^3 + 3x - 2
+				//return 0.5m * (x + 1m) * (x + 1m) - 1; // y = x^3 + 3x - 2
 			}
 			catch (Exception)
 			{
@@ -48,8 +49,8 @@ namespace Half_interval
 			del += CalcChords;
 
 			// HACK: fix wierd behavior
-			MoveGraph(Direction.Up);
-			
+			//MoveGraph(Direction.Up);
+
 			button2_Click(sender, null);
 		}
 
@@ -86,6 +87,7 @@ namespace Half_interval
 			(min, max) = del.Invoke(min, max, error, out steps);
 
 			textBox1.Text = $"ξ ϵ ({ToString(min, digits)};{ToString(max, digits)})";
+
 			for (int i = 1; i < steps.Count; i++)
 				listBox1.Items.Add($"{i + ")",-4} ({ToString(steps[i].min.X, digits),-10}, {ToString(steps[i].max.X, digits),-10})");
 		}
@@ -282,71 +284,59 @@ namespace Half_interval
 
 		private void DrawGrid(Pen pen)
 		{
-			int step = 1;
+			
 			int pbSize = GetSize();
 			int pbC = pbSize / 2;
 
-			pen.Width = 1;
 			graphics.DrawLine(pen, pbSize / 2, 0, pbSize / 2, pbSize);
 			graphics.DrawLine(pen, 0, pbSize / 2, pbSize, pbSize / 2);
 
-			//for (float x_val = MIN_X; x_val <= MAX_X; x_val += step)
-			//{
-			//	int x_px = ToPixels(x_val, MAX_X);
+			int numSteps = GetZoom();
+			int pixelsStep = GetSize() / numSteps;
 
-			//	int offset;
-			//	if (x_val % 5 == 0)
-			//		offset = FITH_TICK_HEIGHT;
-			//	else
-			//		offset = TICK_HEIGHT;
-
-			//	graphics.DrawLine(pen, x_px, pbC - offset, x_px, pbC + offset);
-			//	graphics.DrawLine(pen, pbC - offset, x_px, pbC + offset, x_px);
-
-			//	if (x_val != 0)
-			//	{
-			//		Font f = new("Arial", 8);
-			//		graphics.DrawString((-x_val).ToString(), f, new SolidBrush(Color.Black), x_px, pbC + offset);
-			//		graphics.DrawString((x_val).ToString(), f, new SolidBrush(Color.Black), pbC + offset, x_px);
-			//	}
-			//}
-
-
-			for (int x_val = MIN_X; x_val <= MAX_X; x_val += step)
+			for (int stepNum = 0; stepNum <= numSteps; stepNum++)
 			{
-				int x_px = ToPixelsX(x_val, MAX_X);
+				int valueX = stepNum - MAX_X;
+				int valueY = -(stepNum - MAX_Y);
 
-				int offset;
-				if (x_val % 5 == 0)
-					offset = FITH_TICK_HEIGHT;
-				else
-					offset = TICK_HEIGHT;
+				int px = pixelsStep * stepNum;
 
-				graphics.DrawLine(pen, x_px, pbC - offset, x_px, pbC + offset);
-				Font f = new("Arial", 8);
-				graphics.DrawString((x_val).ToString(), f, new SolidBrush(Color.Black), x_px, pbC + TICK_HEIGHT);
+				int tickHeightForX = ChooseTickHeight(valueX);
+				int tickHeightForY = ChooseTickHeight(valueY);
+
+				if (stepNum != numSteps / 2) // don't draw tick for Ox & Oy intersection
+				{
+					// draw tick for Ox
+					graphics.DrawLine(pen, px, pbC - tickHeightForX, px, pbC + tickHeightForX);
+					// draw tick for Oy
+					graphics.DrawLine(pen, pbC - tickHeightForY, px, pbC + tickHeightForY, px);
+
+
+					Font font = new("Arial", 8);
+					SolidBrush brush = new(Color.Black);
+
+					// draw Ox val
+					graphics.DrawString(valueX.ToString(), font, brush, px, pbC + TICK_HEIGHT);
+					// draw Oy val
+					graphics.DrawString(valueY.ToString(), font, brush, pbC + TICK_HEIGHT, px);
+				}
 			}
 
-			//for (float realX = MIN_REAL; realX <= MAX_REAL; realX += step)
-			//{
-			//	int x = (int)ToCord(realX, ratio, pbSize);
+		}
 
-			//	int offset;
-			//	if (realX % 5 == 0)
-			//		offset = FITH_TICK_HEIGHT;
-			//	else
-			//		offset = TICK_HEIGHT;
-
-			//	graphics.DrawLine(pen, x, pbC - offset, x, pbC + offset);
-			//	graphics.DrawLine(pen, pbC - offset, x, pbC + offset, x);
-
-			//	if (realX != 0)
-			//	{
-			//		Font f = new("Arial", 8);
-			//		graphics.DrawString((-realX).ToString(), f, new SolidBrush(Color.Black), x, pbC + offset);
-			//		graphics.DrawString((-realX).ToString(), f, new SolidBrush(Color.Black), pbC + offset, x);
-			//	}
-			//}
+		/// <summary>
+		/// Every 5-th tick is higher than others.
+		/// </summary>
+		/// <param name="valueX">Tick value.</param>
+		/// <returns>Height of tick for value.</returns>
+		private static int ChooseTickHeight(int valueX)
+		{
+			int offset_x;
+			if (valueX % 5 == 0)
+				offset_x = FITH_TICK_HEIGHT;
+			else
+				offset_x = TICK_HEIGHT;
+			return offset_x;
 		}
 
 		private void CreateBmp()
@@ -363,7 +353,31 @@ namespace Half_interval
 			graphics.SmoothingMode = SmoothingMode.AntiAlias;
 		}
 
-		
+		int ToPixels(float value, int maxVal, int minVal)
+		{
+			return (int)
+				MathF.Round(
+					Math.Clamp(
+						(value - maxVal) / ratio,
+						0,
+						GetSize())
+					);
+		}
+
+		int ToPixelsX(float value, int maxVal, int minVal)
+		{
+			return ToPixels(-value, maxVal);
+		}
+
+		int ToPixelsY(float value, int maxVal, int minVal)
+		{
+			return ToPixels(-value, maxVal);
+		}
+
+		float ToValue(float pixel, int maxVal)
+		{
+			return pixel * ratio - maxVal;
+		}
 
 		#region moving graph
 		private void button3_Click(object sender, EventArgs e)
