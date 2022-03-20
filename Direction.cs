@@ -1,4 +1,4 @@
-﻿namespace Half_interval
+﻿namespace NumAnalysis
 {
 	enum Direction
 	{

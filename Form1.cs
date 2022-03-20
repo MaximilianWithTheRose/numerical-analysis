@@ -5,9 +5,10 @@ using System.Drawing.Drawing2D;
 using System.Windows.Forms;
 using System.Windows;
 using System.Linq;
+using NumAnalysis.Subsystems;
 //using Windows.Devices.Radios;
 
-namespace Half_interval
+namespace NumAnalysis
 {
 	public partial class Form1 : Form
 	{
@@ -16,40 +17,27 @@ namespace Half_interval
 			InitializeComponent();
 		}
 
-		static decimal F(decimal x)
-		{
-			try
-			{
-				return x;
-				//return x * x * x * x - 2m * x - 4;
-				//return x * x * x + 3 * x - 2; // y = x^3 + 3x - 2
-				//return 0.5m * (x + 1m) * (x + 1m) - 1; // y = x^3 + 3x - 2
-			}
-			catch (Exception)
-			{
-				return 0m;
-			}
-		}
-		static float F(float x)
-		{
-			try
-			{
-				return (float)F((decimal)x);
-			}
-			catch (Exception)
-			{
-				return 0f;
-			}
-		}
+
+		delegate (decimal, decimal) Calculator(decimal min, decimal max, decimal error, 
+			out List<((decimal X, decimal Y) min, (decimal X, decimal Y) max)> steps);		
 
 		List<((decimal X, decimal Y) min, (decimal X, decimal Y) max)> steps = new();
+		
+		Calculator MethodDelegate;
+
+		MyFunction function;
+
+
+		int MAX_X, MIN_X;
+		const int NUM_STEPS = 70;
+		const int TICK_HEIGHT = 2;
+		const int FITH_TICK_HEIGHT = 6;
+		const int INCREASE_LOL = 4;
 
 		private void Form1_Load(object sender, EventArgs e)
 		{
-			del += CalcChords;
-
-			// HACK: fix wierd behavior
-			//MoveGraph(Direction.Up);
+			MethodDelegate += CalcChords;
+			function = MyFunction.Linear;
 
 			button2_Click(sender, null);
 		}
@@ -84,7 +72,7 @@ namespace Half_interval
 
 			int digits = NumOfImportantDigits(error);
 
-			(min, max) = del.Invoke(min, max, error, out steps);
+			(min, max) = MethodDelegate.Invoke(min, max, error, out steps);
 
 			textBox1.Text = $"ξ ϵ ({ToString(min, digits)};{ToString(max, digits)})";
 
@@ -98,8 +86,6 @@ namespace Half_interval
 			return d.ToString(valueFormat);
 		}
 
-		delegate (decimal, decimal) Calculator(decimal min, decimal max, decimal error, out List<((decimal X, decimal Y) min, (decimal X, decimal Y) max)> steps);
-		Calculator del;
 
 		private static (decimal min, decimal max) CalcChords(decimal min, decimal max, decimal error, out List<((decimal X, decimal Y) min, (decimal X, decimal Y) max)> steps)
 		{
@@ -166,13 +152,6 @@ namespace Half_interval
 		}
 
 
-		int MAX_X, MIN_X;
-		const int NUM_STEPS = 70;
-		const int TICK_HEIGHT = 2;
-		const int FITH_TICK_HEIGHT = 6;
-		const int INCREASE_LOL = 4;
-		float ratio;
-
 		readonly Pen gridPen = new(Color.Black, 1)
 		{
 			Alignment = PenAlignment.Center,
@@ -220,15 +199,15 @@ namespace Half_interval
 			foreach (var chord in stepsF)
 			{
 				float
-					x1 = ToPixelsX(chord.Item1.X, MAX_X),
-					y1 = ToPixelsY(chord.Item1.Y, MAX_Y);
+					x1 = ToPixelsX(chord.Item1.X, MIN_X, MAX_X),
+					y1 = ToPixelsY(chord.Item1.Y, MIN_Y, MAX_Y);
 
 				float
-					x2 = ToPixelsX(chord.Item2.X, MAX_X),
-					y2 = ToPixelsY(chord.Item2.Y, MAX_Y);
+					x2 = ToPixelsX(chord.Item2.X, MIN_X, MAX_X),
+					y2 = ToPixelsY(chord.Item2.Y, MIN_Y, MAX_Y);
 
-				y1 = ToPixelsY(F(chord.Item1.X), MAX_X);
-				y2 = ToPixelsY(F(chord.Item2.X), MAX_Y);
+				y1 = ToPixelsY(F(chord.Item1.X), MIN_Y, MAX_X);
+				y2 = ToPixelsY(F(chord.Item2.X), MIN_Y, MAX_Y);
 
 				x1 = pbC - (x1 - pbC);
 				x2 = pbC - (x2 - pbC);
@@ -256,8 +235,6 @@ namespace Half_interval
 			//MoveGraph(Direction.Up);
 
 			ratio = (float)GetZoom() / GetSize();
-
-			// TODO: y movement
 		}
 
 		private int GetZoom()
@@ -270,9 +247,9 @@ namespace Half_interval
 			List<PointF> graphPoints = new();
 			for (float X_px = 0; X_px < GetSize(); X_px += GetSize() / NUM_STEPS)
 			{
-				float X_val = ToValue(X_px, MAX_X);
+				float X_val = ToValue(X_px, MIN_X, MAX_X);
 				float Y_val = F(X_val);
-				float Y_px = ToPixelsY(Y_val, MAX_Y);
+				float Y_px = ToPixelsY(Y_val, MIN_Y, MAX_Y);
 
 				graphPoints.Add(new(X_px, Y_px));
 			}
@@ -353,30 +330,34 @@ namespace Half_interval
 			graphics.SmoothingMode = SmoothingMode.AntiAlias;
 		}
 
-		int ToPixels(float value, int maxVal, int minVal)
+		int ToPixels(float value, int minVal, int maxVal)
 		{
-			return (int)
-				MathF.Round(
-					Math.Clamp(
-						(value - maxVal) / ratio,
-						0,
-						GetSize())
-					);
+			int span = maxVal - minVal;
+			float value_zeroed = value - minVal;
+
+			float perc = value_zeroed / span;
+			return (int)Math.Round(perc * GetSize());
 		}
 
-		int ToPixelsX(float value, int maxVal, int minVal)
+		int ToPixelsX(float value, int minVal, int maxVal)
 		{
-			return ToPixels(-value, maxVal);
+			return ToPixels(value, minVal, maxVal);
 		}
 
-		int ToPixelsY(float value, int maxVal, int minVal)
+		int ToPixelsY(float value, int minVal, int maxVal)
 		{
-			return ToPixels(-value, maxVal);
+			return ToPixels(-value, minVal, maxVal);
 		}
 
-		float ToValue(float pixel, int maxVal)
+		float ToValue(float pixel, int minVal, int maxVal)
 		{
-			return pixel * ratio - maxVal;
+			int span = maxVal - minVal;
+			float perc = pixel / GetSize();
+
+			float value_zeroed = perc * span;
+
+			return value_zeroed+minVal;
+			//return pixel * ratio - maxVal;
 		}
 
 		#region moving graph
